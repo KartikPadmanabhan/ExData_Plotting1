@@ -1,75 +1,57 @@
-#Part 0: Getting and Staging Data onto local Drives
-#--------------------------------------------------------------------
-#Download dataset if already not download
+############################################
+#Getting and Staging Data onto local Drives#
+############################################
+
+# Download dataset if already not download
 if (!file.exists("dataset.zip")){
-#  URL of Dataset
-   fileURL<-"https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2Fhousehold_power_consumption.zip"
-#  downloads the zipped file and renames it to something simple(dataset.zip)
-   download.file(fileURL,destfile="dataset.zip",method="wget")
-#  Date stamp the data downloaded
-   dateDownloaded<-date()
-#unzip the zipped file thats downloaded currently
+  #  URL of Dataset
+  fileURL<-"https://d396qusza40orc.cloudfront.net/exdata%2Fdata%2Fhousehold_power_consumption.zip"
+  #  downloads the zipped file and renames it to something simple(dataset.zip)
+  download.file(fileURL,destfile="dataset.zip",method="wget")
+  #  Date stamp the data downloaded
+  dateDownloaded<-date()
+  #unzip the zipped file thats downloaded currently
   unzip("~/dataset.zip")
 }
 
-#Part I Merges the training and the test sets to create one data set.
-#--------------------------------------------------------------------
-test_subj<-read.table("./test/subject_test.txt",col.names=c("subject"))
-train_subj<-read.table("./train/subject_train.txt",col.names=c("subject"))
-subj<-rbind(train_subj,test_subj)
-#Reference:
-#> str(subj)
-#'data.frame':        10299 obs. of  1 variable:
-#        $ subject: int  1 1 1 1 1 1 1 1 1 1 ...
+#########################################################
+#Read the data onto R and convert into appropriate types#
+#########################################################
+#Unzip dataset.zip creates a file household_power_consumption.txt. 
+readData<-read.table("./household_power_consumption.txt",sep=";",header=TRUE,colClasses="character")
 
-#similarly merge all test set (X_test.txt), labels (y_test.txt)
-test_X<-read.table("./test/X_test.txt")
-train_X<-read.table("./train/X_train.txt")
-test_y<-read.table("./test/y_test.txt",col.names=c("activityid"))
-train_y<-read.table("./train/y_train.txt",col.names=c("activityid"))
-X<-rbind(test_X,train_X)
-y<-rbind(test_y,train_y)
-
-#Part II Extracts measurements on the mean and stdev for each measurement. 
-#----------------------------------------------------------------------------------
-feature<-read.table("features.txt", col.names=c("featureid", "featurename"))
-idx<-grep("-mean\\(\\)|-std\\(\\)", feature$featurename)
-names(X)<-feature[,2]
-msd<-X[,idx]
-str(msd)
-#> str(msd)
-#'data.frame':        10299 obs. of  66 variables:
-#        $ tBodyAcc-mean()-X          : num  0.257 0.286 0.275 0.27 0.275 ...
-#$ tBodyAcc-mean()-Y          : num  -0.0233 -0.0132 -0.0261 -0.0326 -0.0278 ...
-#$ tBodyAcc-mean()-Z          : num  -0.0147 -0.1191 -0.1182 -0.1175 -0.1295 ...
+#Convert the readData$Date column into real date type.
+readData$Date<-as.Date(readData$Date,"%d/%m/%Y")
 
 
-#Part III Uses descriptive activity names to name the activities in the data set. 
-#----------------------------------------------------------------------------------
-act <- read.table("activity_labels.txt",col.names=c("activityid","activity"))
-act[, 2] = gsub("_", "", as.character(act[, 2]))
-y [,1] = act[y[,1], 2]
-names(y) <- "activity"
+# This is for readData$Time col time that should also include date(1st col for appropriate conversion)
+dateandtime<-paste(readData$Date,readData$Time)
 
-#Part IV Appropriately labels the data set with descriptive activity names. 
-#----------------------------------------------------------------------------------
-tidyData<-cbind(subj,y,msd)
-str(tidyData)
-names(tidyData)[2]<-paste("activity")
-names(tidyData)<-gsub("\\(|\\)", "", names(tidyData))
-write.table(tidyData,"tidyData.txt")
+#Convert it into real time-stamp (including date.
+readData$Time<-strptime(dateandtime,format="%Y-%m-%d %H:%M:%S",tz="")
 
-#Part V Creates a second, independent tidy data set with the average of each variable for each activity and each subject. 
-#----------------------------------------------------------------------------------
-library(reshape2)
-mtidyData<-melt(tidyData,id=c("subject","activity"))
-subjactmean<-dcast(mtidyData,subject+activity ~ variable,mean)
-View(subjactmean)
-write.csv(subjactmean, file= "tidyDataFinal.txt", row.names=FALSE)
+###########################################################################################################
+#Filter the tidy data onto the final data frame consisting of filtered dates b/w "2007-02-01","2007-02-02"#
+###########################################################################################################
 
-# Program is done. Reset the c.w.d. to a directory above to point to original location
-#----------------------------------------------------------------------------------
-setwd("..")
+#Find the subset between 2007-02-01 and 2007-02-02
+finalData=subset(readData,readData$Date %in% as.Date(c("2007-02-01","2007-02-02")))
+
+#####################################################################################
+#Plot Global Active Data (in KW) on the days "2007-02-01","2007-02-02"              #
+#####################################################################################
+
+par(mfrow=c(1,1))
+with(finalData, plot(Time, Global_active_power, type="l", ylab="Global Active Power (kilowatts)", xlab=""))
 
 
+################################################################################
+#Open a graphic device and copy this plot onto a file plot2.png                #
+################################################################################
 
+# Open "PNG" device as per the requirement (480X480)
+png(filename="plot2.png", width=480, height=480)
+
+with(finalData, plot(Time, Global_active_power, type="l", ylab="Global Active Power (kilowatts)", xlab=""))
+
+dev.off()
